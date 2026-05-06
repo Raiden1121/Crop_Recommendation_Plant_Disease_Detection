@@ -7,7 +7,7 @@
 
 ## 資料集下載
 
-資料集不會直接上傳到 GitHub，請自行從 Kaggle 下載後放到指定位置。
+請自行從 Kaggle 下載後放到指定位置。
 
 - 植物疾病圖片資料集 PlantVillage：
   `https://www.kaggle.com/datasets/emmarex/plantdisease`
