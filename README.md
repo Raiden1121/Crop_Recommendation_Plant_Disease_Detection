@@ -82,9 +82,3 @@ source .venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
-
-## Git 說明
-
-本專案不會將資料集與訓練後模型直接推上 GitHub，避免 repository 過大。
-
-`.gitkeep` 是為了讓 Git 保留空資料夾結構。因為 Git 不會追蹤空資料夾，所以會在需要保留的空資料夾中放一個 `.gitkeep` 檔案。
