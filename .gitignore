@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# Local datasets
+# Keep dataset folders locally. Only .gitkeep files are tracked to preserve folder structure.
+data/**
+!data/
+!data/.gitkeep
+!data/crop/
+!data/crop/.gitkeep
+!data/plant_disease/
+!data/plant_disease/.gitkeep
+
+# Model outputs
+models/*.pkl
+models/*.h5
+models/*.keras
+models/*.joblib
+!models/.gitkeep
+!models/class_names.json
+
+# Logs and temp files
+*.log
+tmp/
+temp/
