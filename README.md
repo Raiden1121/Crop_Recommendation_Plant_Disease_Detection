@@ -1,11 +1,30 @@
 # Crop Recommendation Plant Disease Detection
 
-This project combines two agriculture machine learning tasks:
+本專案結合兩個農業相關的機器學習任務：
 
-- Crop recommendation from soil and weather data.
-- Plant disease detection from PlantVillage leaf images.
+- 根據土壤與環境數據推薦適合種植的作物。
+- 根據植物葉片圖片判斷植物是否感染疾病。
 
-## Project Structure
+## 資料集下載
+
+資料集不會直接上傳到 GitHub，請自行從 Kaggle 下載後放到指定位置。
+
+- 植物疾病圖片資料集 PlantVillage：
+  `https://www.kaggle.com/datasets/emmarex/plantdisease`
+- 作物推薦資料集 Crop Recommendation Dataset：
+  `https://www.kaggle.com/datasets/atharvaingle/crop-recommendation-dataset/data`
+
+下載後請放到以下位置：
+
+```text
+data/
+  crop/
+    Crop_recommendation.csv
+  plant_disease/
+    PlantVillage/
+```
+
+## 專案結構
 
 ```text
 data/
@@ -27,38 +46,45 @@ requirements.txt
 README.md
 ```
 
-## Files And Folders
+## 檔案與資料夾說明
 
-- `data/`: Stores datasets used for training and testing.
-- `data/crop/Crop_recommendation.csv`: Tabular crop recommendation dataset.
-- `data/plant_disease/PlantVillage/`: Image dataset for plant disease classification.
-- `src/`: Stores Python scripts for training and prediction.
-- `src/train_crop_model.py`: Script for training the crop recommendation model.
-- `src/train_plant_model.py`: Script for training the plant disease image model.
-- `src/test_predict.py`: Script for testing model predictions.
-- `models/`: Stores trained model files and label metadata.
-- `models/crop_model.pkl`: Expected output file for the trained crop recommendation model.
-- `models/plant_disease_model.h5`: Expected output file for the trained plant disease model.
-- `models/class_names.json`: Stores plant disease class names used by the image model.
-- `backend/app.py`: Flask backend entry point for serving predictions.
-- `requirements.txt`: Python package dependencies for this project.
-- `README.md`: Project overview and file structure documentation.
+- `data/`：存放本機資料集。此資料夾中的實際資料不會推上 GitHub。
+- `data/crop/Crop_recommendation.csv`：作物推薦模型使用的表格資料集。
+- `data/plant_disease/PlantVillage/`：植物疾病辨識模型使用的葉片圖片資料集。
+- `src/`：存放模型訓練與測試用的 Python 程式。
+- `src/train_crop_model.py`：訓練作物推薦模型的程式。
+- `src/train_plant_model.py`：訓練植物疾病圖片分類模型的程式。
+- `src/test_predict.py`：測試模型預測結果的程式。
+- `models/`：存放訓練完成的模型與類別名稱資料。
+- `models/crop_model.pkl`：作物推薦模型訓練後預計輸出的模型檔。
+- `models/plant_disease_model.h5`：植物疾病辨識模型訓練後預計輸出的模型檔。
+- `models/class_names.json`：植物疾病模型對應的類別名稱。
+- `backend/app.py`：Flask 後端 API 入口，之後可用來提供模型預測服務。
+- `requirements.txt`：專案需要安裝的 Python 套件清單。
+- `README.md`：專案介紹、檔案說明與使用方式。
 
-## Setup
+## 環境建立
 
-Create and activate a virtual environment:
+建立虛擬環境：
 
 ```bash
 python -m venv .venv
+```
+
+啟動虛擬環境：
+
+```bash
 source .venv/bin/activate
 ```
 
-Install dependencies:
+安裝套件：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-dataset:
-https://www.kaggle.com/datasets/emmarex/plantdisease
-https://www.kaggle.com/datasets/atharvaingle/crop-recommendation-dataset/data
+## Git 說明
+
+本專案不會將資料集與訓練後模型直接推上 GitHub，避免 repository 過大。
+
+`.gitkeep` 是為了讓 Git 保留空資料夾結構。因為 Git 不會追蹤空資料夾，所以會在需要保留的空資料夾中放一個 `.gitkeep` 檔案。
