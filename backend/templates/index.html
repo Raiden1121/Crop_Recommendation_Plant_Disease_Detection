@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crop Recommendation & Plant Disease Detection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body data-page="home">
+    <header class="site-header">
+        <nav class="navbar container">
+            <a class="brand" href="{{ url_for('home') }}">
+                <span class="brand-mark">AgriML</span>
+                <span class="brand-text">Smart Farming Demo</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('crop_page') }}">Crop Recommendation</a>
+                <a href="{{ url_for('disease_page') }}">Disease Detection</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container hero-grid">
+                <div class="hero-copy reveal">
+                    <p class="eyebrow">Agriculture x Machine Learning</p>
+                    <h1>Crop Recommendation & Plant Disease Detection</h1>
+                    <p class="hero-text">
+                        A Flask-based agricultural intelligence system that combines structured environmental data
+                        with plant image classification to support smarter cultivation decisions and faster disease screening.
+                    </p>
+                    <div class="hero-actions">
+                        <a class="btn btn-primary" href="{{ url_for('crop_page') }}">Try Crop Recommendation</a>
+                        <a class="btn btn-secondary" href="{{ url_for('disease_page') }}">Try Disease Detection</a>
+                    </div>
+                </div>
+
+                <div class="hero-panel reveal delay-1">
+                    <div class="metric-card">
+                        <span class="metric-label">Inputs</span>
+                        <strong>7 Soil & Climate Features</strong>
+                        <p>N, P, K, temperature, humidity, pH, rainfall</p>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Vision Model</span>
+                        <strong>Leaf Image Classification</strong>
+                        <p>Upload a plant leaf image to identify possible disease classes.</p>
+                    </div>
+                    <div class="hero-badge">
+                        <span>Built for Flask Demo Presentation</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="feature-section">
+            <div class="container">
+                <div class="section-heading reveal">
+                    <p class="eyebrow">Project Modules</p>
+                    <h2>Two Core ML Workflows</h2>
+                    <p>Separate interfaces for tabular prediction and image-based diagnosis, designed for class presentation and live demo use.</p>
+                </div>
+
+                <div class="feature-grid">
+                    <article class="feature-card reveal">
+                        <div class="card-icon">01</div>
+                        <h3>Crop Recommendation</h3>
+                        <p>
+                            Enter soil nutrient values and environmental conditions, then let the trained model recommend a suitable crop for planting.
+                        </p>
+                        <ul class="feature-list">
+                            <li>Structured data input form</li>
+                            <li>Fast prediction response</li>
+                            <li>Clear recommended crop result card</li>
+                        </ul>
+                        <a class="btn btn-primary" href="{{ url_for('crop_page') }}">Open Crop Page</a>
+                    </article>
+
+                    <article class="feature-card reveal delay-1">
+                        <div class="card-icon">02</div>
+                        <h3>Plant Disease Detection</h3>
+                        <p>
+                            Upload a leaf image and use the trained CNN model to classify plant disease categories with confidence feedback.
+                        </p>
+                        <ul class="feature-list">
+                            <li>Image upload with preview</li>
+                            <li>Disease name and confidence score</li>
+                            <li>Designed for demo-friendly presentation</li>
+                        </ul>
+                        <a class="btn btn-primary" href="{{ url_for('disease_page') }}">Open Disease Page</a>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

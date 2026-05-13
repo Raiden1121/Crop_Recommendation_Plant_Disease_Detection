@@ -8,3 +8,6 @@ tensorflow
 ipykernel
 opencv-python
 keras-layer-normalization
+flask 
+pillow 
+joblib

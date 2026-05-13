@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Disease Detection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body data-page="disease">
+    <header class="site-header compact-header">
+        <nav class="navbar container">
+            <a class="brand" href="{{ url_for('home') }}">
+                <span class="brand-mark">AgriML</span>
+                <span class="brand-text">Disease Detection</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Home</a>
+                <a href="{{ url_for('crop_page') }}">Crop Recommendation</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="page-shell">
+        <div class="container split-layout">
+            <section class="info-panel reveal">
+                <a class="back-link" href="{{ url_for('home') }}">← Back to Home</a>
+                <p class="eyebrow">Computer Vision Prediction</p>
+                <h1>Plant Disease Detection</h1>
+                <p class="page-intro">
+                    Upload a plant leaf image and let the trained deep learning model classify the disease category with confidence feedback.
+                </p>
+
+                <div class="info-card">
+                    <h3>Upload Guidelines</h3>
+                    <p>Use a clear leaf photo with visible disease patterns. Supported formats: PNG, JPG, JPEG, WEBP.</p>
+                </div>
+
+                {% if prediction %}
+                <section class="result-box success-card reveal delay-1">
+                    <p class="result-label">Prediction Result</p>
+                    <h2>Predicted Disease: {{ prediction }}</h2>
+                    {% if confidence is not none %}
+                    <p>Confidence: {{ confidence }}%</p>
+                    {% endif %}
+                    {% if image_path %}
+                    <div class="result-image-wrap">
+                        <img src="{{ url_for('static', filename=image_path) }}" alt="Uploaded plant image">
+                    </div>
+                    {% endif %}
+                </section>
+                {% endif %}
+
+                {% if error %}
+                <div class="server-message error-text">{{ error }}</div>
+                {% endif %}
+            </section>
+
+            <section class="form-panel reveal delay-1">
+                <form id="diseaseForm" class="smart-form" action="/predict_disease" method="POST" enctype="multipart/form-data" novalidate>
+                    <div class="form-heading">
+                        <h2>Upload Plant Leaf Image</h2>
+                        <p>Select one image file to run disease classification.</p>
+                    </div>
+
+                    <div class="upload-panel" id="uploadPanel">
+                        <label for="plant_image" class="upload-dropzone">
+                            <span class="upload-title">Choose an image</span>
+                            <span class="upload-subtitle">Click to browse or replace the selected image</span>
+                            <input id="plant_image" name="plant_image" type="file" accept="image/*">
+                        </label>
+
+                        <div class="preview-box" id="previewBox">
+                            <p class="preview-placeholder">Image preview will appear here.</p>
+                            <img id="imagePreview" src="#" alt="Preview" class="hidden">
+                        </div>
+
+                        <p id="fileInfo" class="file-info"></p>
+                        <p id="diseaseFormError" class="form-error-message"></p>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn btn-primary submit-btn" type="submit" data-loading-text="Analyzing...">
+                            Detect Disease
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
