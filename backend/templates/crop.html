@@ -10,15 +10,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body data-page="crop">
-    <header class="site-header compact-header">
+
+     <header class="site-header">
         <nav class="navbar container">
             <a class="brand" href="{{ url_for('home') }}">
-                <span class="brand-mark">AgriML</span>
-                <span class="brand-text">Crop Recommendation</span>
+                <span class="brand-mark">AgricultureML</span>
             </a>
             <div class="nav-links">
-                <a href="{{ url_for('home') }}">Home</a>
-                <a href="{{ url_for('disease_page') }}">Disease Detection</a>
+                <a href="{{ url_for('home') }}" data-i18n="nav.home">Home</a>
+                <a href="{{ url_for('disease_page') }}" data-i18n="nav.disease">Disease Detection</a>
+                <button class="lang-toggle" type="button" data-lang-toggle aria-label="Switch language">中文</button>
             </div>
         </nav>
     </header>
@@ -26,32 +27,35 @@
     <main class="page-shell">
         <div class="container split-layout">
             <section class="info-panel reveal">
-                <a class="back-link" href="{{ url_for('home') }}">← Back to Home</a>
-                <p class="eyebrow">Tabular ML Prediction</p>
-                <h1>Crop Recommendation</h1>
+                <a class="back-link" href="{{ url_for('home') }}" data-i18n="common.backHome">← Back to Home</a>
+                <p class="eyebrow" data-i18n="crop.eyebrow">Tabular ML Prediction</p>
+                <h1 data-i18n="crop.title">Crop Recommendation</h1>
                 <p class="page-intro">
-                    Input soil nutrients and environmental conditions to predict a suitable crop from the trained machine learning model.
+                    <span data-i18n="crop.intro">Input soil nutrients and environmental conditions to predict a suitable crop from the trained machine learning model.</span>
                 </p>
 
                 <div class="info-card">
-                    <h3>Required Features</h3>
-                    <p>The model expects seven numeric values describing soil fertility and growing conditions.</p>
-                    <div class="tag-row">
-                        <span>N</span>
-                        <span>P</span>
-                        <span>K</span>
-                        <span>temperature</span>
-                        <span>humidity</span>
-                        <span>ph</span>
-                        <span>rainfall</span>
+                    <h3 data-i18n="crop.requiredTitle">Required Features</h3>
+                    <p data-i18n="crop.requiredDesc">The model expects seven numeric values describing soil fertility and growing conditions.</p>
+                    <div class="feature-tag-grid">
+                        <span><strong>N</strong><small data-i18n="crop.featureN">Nitrogen ratio in soil</small></span>
+                        <span><strong>P</strong><small data-i18n="crop.featureP">Phosphorous ratio in soil</small></span>
+                        <span><strong>K</strong><small data-i18n="crop.featureK">Potassium ratio in soil</small></span>
+                        <span><strong>temperature</strong><small data-i18n="crop.featureTemp">degree Celsius (°C)</small></span>
+                        <span><strong>humidity</strong><small data-i18n="crop.featureHumidity">relative humidity (%)</small></span>
+                        <span><strong>ph</strong><small data-i18n="crop.featurePh">soil pH value</small></span>
+                        <span><strong>rainfall</strong><small data-i18n="crop.featureRainfall">rainfall in mm</small></span>
                     </div>
                 </div>
 
                 {% if prediction %}
                 <section class="result-box success-card reveal delay-1">
-                    <p class="result-label">Prediction Result</p>
-                    <h2>Recommended Crop: {{ prediction }}</h2>
-                    <p>The recommendation is generated from the submitted soil and climate values.</p>
+                    <p class="result-label" data-i18n="result.label">Prediction Result</p>
+                    <div class="result-crop">
+                        <span data-i18n="crop.recommended">Recommended Crop</span>
+                        <strong>{{ prediction }}</strong>
+                    </div>
+                    <p data-i18n="crop.resultDesc">The recommendation is generated from the submitted soil and climate values.</p>
                 </section>
                 {% endif %}
 
@@ -63,64 +67,67 @@
             <section class="form-panel reveal delay-1">
                 <form id="cropForm" class="smart-form" action="/predict_crop" method="POST" novalidate>
                     <div class="form-heading">
-                        <h2>Enter Environmental Data</h2>
-                        <p>All fields are required and should contain numeric values.</p>
+                        <h2 data-i18n="crop.formTitle">Enter Environmental Data</h2>
+                        <p data-i18n="crop.formDesc">All fields are required and should contain numeric values.</p>
                     </div>
 
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="N">N</label>
+                            <label for="N">N <span data-i18n="unit.ratio">(ratio)</span></label>
                             <input id="N" name="N" type="text" placeholder="e.g. 90" value="{{ form_data.N if form_data else '' }}">
-                            <small>Nitrogen level in soil.</small>
+                            <small data-i18n="crop.nHelp">Ratio of Nitrogen content in soil.</small>
                             <p class="field-error"></p>
                         </div>
 
                         <div class="form-group">
-                            <label for="P">P</label>
+                            <label for="P">P <span data-i18n="unit.ratio">(ratio)</span></label>
                             <input id="P" name="P" type="text" placeholder="e.g. 42" value="{{ form_data.P if form_data else '' }}">
-                            <small>Phosphorus level in soil.</small>
+                            <small data-i18n="crop.pHelp">Ratio of Phosphorous content in soil.</small>
                             <p class="field-error"></p>
                         </div>
 
                         <div class="form-group">
-                            <label for="K">K</label>
+                            <label for="K">K <span data-i18n="unit.ratio">(ratio)</span></label>
                             <input id="K" name="K" type="text" placeholder="e.g. 43" value="{{ form_data.K if form_data else '' }}">
-                            <small>Potassium level in soil.</small>
+                            <small data-i18n="crop.kHelp">Ratio of Potassium content in soil.</small>
                             <p class="field-error"></p>
                         </div>
 
                         <div class="form-group">
-                            <label for="temperature">temperature</label>
+                            <label for="temperature">temperature <span>(°C)</span></label>
                             <input id="temperature" name="temperature" type="text" placeholder="e.g. 25.6" value="{{ form_data.temperature if form_data else '' }}">
-                            <small>Temperature in Celsius.</small>
+                            <small data-i18n="crop.temperatureHelp">Temperature in degree Celsius.</small>
                             <p class="field-error"></p>
                         </div>
 
                         <div class="form-group">
-                            <label for="humidity">humidity</label>
+                            <label for="humidity">humidity <span>(%)</span></label>
                             <input id="humidity" name="humidity" type="text" placeholder="e.g. 78.2" value="{{ form_data.humidity if form_data else '' }}">
-                            <small>Relative humidity percentage.</small>
+                            <small data-i18n="crop.humidityHelp">Relative humidity in %.</small>
                             <p class="field-error"></p>
                         </div>
 
                         <div class="form-group">
-                            <label for="ph">ph</label>
+                            <label for="ph">ph <span data-i18n="unit.value">(value)</span></label>
                             <input id="ph" name="ph" type="text" placeholder="e.g. 6.5" value="{{ form_data.ph if form_data else '' }}">
-                            <small>Recommended range: 0 to 14.</small>
+                            <small data-i18n="crop.phHelp">pH value of the soil. Recommended range: 0 to 14.</small>
                             <p class="field-error"></p>
                         </div>
 
                         <div class="form-group full-width">
-                            <label for="rainfall">rainfall</label>
+                            <label for="rainfall">rainfall <span>(mm)</span></label>
                             <input id="rainfall" name="rainfall" type="text" placeholder="e.g. 120.0" value="{{ form_data.rainfall if form_data else '' }}">
-                            <small>Rainfall amount in millimeters.</small>
+                            <small data-i18n="crop.rainfallHelp">Rainfall in mm.</small>
                             <p class="field-error"></p>
                         </div>
                     </div>
 
                     <div class="form-actions">
-                        <button class="btn btn-primary submit-btn" type="submit" data-loading-text="Predicting...">
-                            Get Recommendation
+                        <button class="btn btn-primary submit-btn" type="submit" data-loading-text="Predicting..." data-i18n-loading="crop.loading">
+                            <span data-i18n="crop.submit">Get Recommendation</span>
+                        </button>
+                        <button class="btn btn-secondary randomize-btn" type="button" id="randomCropDataBtn">
+                            <span data-i18n="crop.randomize">Generate Random Data</span>
                         </button>
                         <p id="cropFormError" class="form-error-message"></p>
                     </div>

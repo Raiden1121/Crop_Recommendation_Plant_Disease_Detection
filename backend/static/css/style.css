@@ -105,6 +105,7 @@ input {
 
 .nav-links {
     display: flex;
+    align-items: center;
     gap: 18px;
     flex-wrap: wrap;
 }
@@ -130,6 +131,23 @@ input {
 
 .nav-links a:hover::after {
     transform: scaleX(1);
+}
+
+.lang-toggle {
+    border: 1px solid rgba(59, 105, 67, 0.18);
+    border-radius: 999px;
+    padding: 8px 13px;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--primary-dark);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.lang-toggle:hover {
+    background: #fff;
+    box-shadow: 0 10px 22px rgba(45, 72, 52, 0.1);
+    transform: translateY(-1px);
 }
 
 .hero {
@@ -256,6 +274,10 @@ p {
     border: 1px solid rgba(59, 105, 67, 0.16);
 }
 
+.randomize-btn {
+    box-shadow: 0 12px 26px rgba(45, 72, 52, 0.08);
+}
+
 .metric-card,
 .hero-badge,
 .feature-card,
@@ -373,6 +395,18 @@ p {
     margin-bottom: 24px;
 }
 
+.info-card {
+    padding: 24px;
+}
+
+.info-card h3 {
+    line-height: 1.16;
+}
+
+.info-card p {
+    margin-bottom: 18px;
+}
+
 .tag-row {
     display: flex;
     flex-wrap: wrap;
@@ -386,6 +420,36 @@ p {
     color: var(--primary-dark);
     font-weight: 500;
     font-size: 0.92rem;
+}
+
+.feature-tag-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.feature-tag-grid span {
+    min-width: 0;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: rgba(62, 123, 77, 0.08);
+    border: 1px solid rgba(62, 123, 77, 0.1);
+}
+
+.feature-tag-grid strong,
+.feature-tag-grid small {
+    display: block;
+}
+
+.feature-tag-grid strong {
+    margin-bottom: 4px;
+    color: var(--primary-dark);
+    font-size: 0.95rem;
+}
+
+.feature-tag-grid small {
+    color: var(--muted);
+    line-height: 1.35;
 }
 
 .smart-form {
@@ -415,6 +479,12 @@ p {
 .form-group label {
     font-weight: 700;
     color: var(--text);
+}
+
+.form-group label span {
+    color: var(--primary-dark);
+    font-size: 0.9em;
+    font-weight: 700;
 }
 
 .form-group input {
@@ -447,6 +517,10 @@ p {
     font-size: 0.92rem;
 }
 
+.form-actions .form-error-message {
+    flex-basis: 100%;
+}
+
 .has-error input,
 .upload-panel.has-error .upload-dropzone {
     border-color: rgba(200, 76, 59, 0.8);
@@ -463,11 +537,39 @@ p {
 
 .result-box {
     margin-top: 24px;
-    padding: 24px;
+    padding: 28px;
 }
 
 .success-card {
-    background: linear-gradient(180deg, rgba(235, 247, 233, 0.95), rgba(255, 255, 255, 0.92));
+    border-color: rgba(62, 123, 77, 0.28);
+    background:
+        linear-gradient(135deg, rgba(62, 123, 77, 0.14), rgba(216, 185, 107, 0.16)),
+        rgba(255, 255, 255, 0.94);
+    box-shadow: 0 24px 60px rgba(45, 72, 52, 0.18);
+}
+
+.result-crop {
+    margin: 2px 0 16px;
+    padding: 18px 20px;
+    border-radius: var(--radius-md);
+    background: var(--surface-strong);
+    border: 1px solid rgba(62, 123, 77, 0.14);
+}
+
+.result-crop span {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.result-crop strong {
+    display: block;
+    color: var(--primary-dark);
+    font-family: "Fraunces", serif;
+    font-size: clamp(2.2rem, 5vw, 4.1rem);
+    line-height: 1;
+    text-transform: capitalize;
 }
 
 .upload-panel {
@@ -607,6 +709,10 @@ p {
         gap: 14px;
     }
 
+    .lang-toggle {
+        margin-left: auto;
+    }
+
     .hero {
         padding-top: 32px;
     }
@@ -617,6 +723,10 @@ p {
 
     .full-width {
         grid-column: auto;
+    }
+
+    .feature-tag-grid {
+        grid-template-columns: 1fr;
     }
 
     .btn,
