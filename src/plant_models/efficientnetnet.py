@@ -9,10 +9,9 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
+from tensorflow.keras.layers import Dense, Dropout, GlobalAveragePooling2D
+from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-from tensorflow.keras import layers, models
 
 
 EPOCHS = 25
@@ -29,37 +28,6 @@ depth = 3
 default_image_size = (height, width)
 AUTOTUNE = tf.data.AUTOTUNE
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
-
-def build_model(n_classes, input_shape=(256, 256, 3)):
-    inputs = layers.Input(shape=input_shape)
-
-    # 你的 load_image 已經把圖片除以 255.0
-    # 所以這裡先乘回 255，再交給 MobileNetV2 的 preprocess_input
-    x = layers.Lambda(lambda img: preprocess_input(img * 255.0))(inputs)
-
-    base_model = MobileNetV2(
-        input_shape=input_shape,
-        include_top=False,
-        weights="imagenet"
-    )
-
-    # 先凍結 MobileNetV2，只訓練後面的分類層
-    base_model.trainable = False
-
-    x = base_model(x, training=False)
-
-    x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dropout(0.3)(x)
-
-    x = layers.Dense(256, activation="relu")(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.4)(x)
-
-    outputs = layers.Dense(n_classes, activation="softmax")(x)
-
-    model = models.Model(inputs, outputs)
-
-    return model
 
 
 def print_training_device():
@@ -194,7 +162,12 @@ def load_image(image_path, label):
     image = tf.io.read_file(image_path)
     image = tf.io.decode_image(image, channels=3, expand_animations=False)
     image = tf.image.resize(image, default_image_size)
-    image = tf.cast(image, tf.float32) / 255.0
+
+    # Important:
+    # EfficientNetB0 in tf.keras already includes preprocessing.
+    # Do NOT divide by 255 here.
+    image = tf.cast(image, tf.float32)
+
     image.set_shape((height, width, depth))
     return image, label
 
@@ -210,8 +183,36 @@ def build_dataset(image_paths, labels, training=False):
         dataset
         .map(load_image, num_parallel_calls=AUTOTUNE)
         .batch(BS)
-        .prefetch(1)
+        .prefetch(AUTOTUNE)
     )
+
+
+def build_model(n_classes, input_shape):
+    base_model = tf.keras.applications.EfficientNetB0(
+        input_shape=input_shape,
+        include_top=False,
+        weights="imagenet",
+    )
+
+    # First stage: freeze EfficientNetB0 and train only the classifier head.
+    base_model.trainable = False
+
+    model = Sequential(name="efficientnetb0_plant_disease")
+    model.add(tf.keras.Input(shape=input_shape))
+
+    # Data augmentation is used only during training.
+    model.add(tf.keras.layers.RandomFlip("horizontal"))
+    model.add(tf.keras.layers.RandomRotation(0.07))
+    model.add(tf.keras.layers.RandomZoom(0.1))
+    model.add(tf.keras.layers.RandomTranslation(0.1, 0.1))
+
+    model.add(base_model)
+    model.add(GlobalAveragePooling2D())
+    model.add(Dense(256, activation="relu"))
+    model.add(Dropout(0.4))
+    model.add(Dense(n_classes, activation="softmax"))
+
+    return model
 
 
 def plot_training_history(history):
@@ -265,7 +266,6 @@ def main():
     print_training_device()
 
     image_paths, label_list, class_to_paths = collect_image_paths()
-
     show_dataset_summary(label_list, class_to_paths)
     plot_class_distribution(label_list)
     show_sample_images(class_to_paths)
@@ -277,9 +277,7 @@ def main():
 
     image_paths = np.array(image_paths)
     image_labels = np.array(label_list)
-
     print("[INFO] Splitting data to train, validation, test")
-
     x_train_paths, x_temp_paths, y_train_labels, y_temp_labels = train_test_split(
         image_paths,
         image_labels,
@@ -287,7 +285,6 @@ def main():
         random_state=42,
         stratify=image_labels,
     )
-
     x_val_paths, x_test_paths, y_val_labels, y_test_labels = train_test_split(
         x_temp_paths,
         y_temp_labels,
@@ -311,20 +308,40 @@ def main():
     )
 
     model = build_model(n_classes, input_shape=(height, width, depth))
-
     model.summary()
 
     model.compile(
         loss="categorical_crossentropy",
-        optimizer=Adam(learning_rate=INIT_LR),metrics=["accuracy"],
-        )
+        optimizer=Adam(learning_rate=INIT_LR),
+        metrics=["accuracy"],
+    )
 
-    print("[INFO] Training network...")
+    early_stop = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss",
+        patience=5,
+        restore_best_weights=True,
+    )
 
+    checkpoint = tf.keras.callbacks.ModelCheckpoint(
+        models_dir / "best_plant_disease_model.keras",
+        monitor="val_accuracy",
+        save_best_only=True,
+        mode="max",
+    )
+
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+        monitor="val_loss",
+        factor=0.2,
+        patience=3,
+        min_lr=1e-6,
+    )
+
+    print("[INFO] Training EfficientNetB0 network...")
     history = model.fit(
         train_ds,
         validation_data=val_ds,
         epochs=EPOCHS,
+        callbacks=[early_stop, checkpoint, reduce_lr],
         verbose=1,
     )
 
@@ -335,8 +352,7 @@ def main():
     print(f"Test Accuracy: {scores[1] * 100}")
 
     model_path = models_dir / "plant_disease_model.keras"
-
-    print(f"[INFO] Saving model to {model_path}")
+    print(f"[INFO] Saving final model to {model_path}")
     model.save(model_path)
 
 
