@@ -3,7 +3,6 @@ import math
 import pickle
 from collections import Counter
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -14,7 +13,7 @@ from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras import layers, models
 
-
+# hello
 EPOCHS = 25
 INIT_LR = 1e-3
 BS = 16
