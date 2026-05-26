@@ -9,9 +9,11 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
-from tensorflow.keras.layers import Conv2D, Dense, Flatten, MaxPooling2D
-from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
+
+from plant_models.baseline_cnn import build_model
+# To train the advanced CNN instead, change the import above to:
+# from plant_models.advanced_cnn import build_model
 
 
 EPOCHS = 25
@@ -181,68 +183,6 @@ def build_dataset(image_paths, labels, training=False):
     )
 
 
-def build_model(n_classes):
-    model = Sequential()
-    model.add(tf.keras.Input(shape=(height, width, depth)))
-    model.add(Conv2D(16, (3, 3), activation="relu"))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Conv2D(32, (3, 3), activation="relu"))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Flatten())
-    model.add(Dense(128, activation="relu"))
-    model.add(Dense(n_classes, activation="softmax"))
-    return model
-
-
-# Original larger CNN model kept for reference.
-# It is not used right now because build_model() above trains the simpler CNN.
-#
-# from tensorflow.keras import backend as K
-# from tensorflow.keras.layers import Activation, BatchNormalization, Dropout
-#
-# def build_original_advanced_model(n_classes):
-#     model = Sequential()
-#     input_shape = (height, width, depth)
-#     chan_dim = -1
-#     if K.image_data_format() == "channels_first":
-#         input_shape = (depth, height, width)
-#         chan_dim = 1
-#     model.add(tf.keras.Input(shape=input_shape))
-#     model.add(tf.keras.layers.RandomFlip("horizontal"))
-#     model.add(tf.keras.layers.RandomRotation(0.07))
-#     model.add(tf.keras.layers.RandomZoom(0.1))
-#     model.add(tf.keras.layers.RandomTranslation(0.1, 0.1))
-#     model.add(Conv2D(32, (3, 3), padding="same"))
-#     model.add(Activation("relu"))
-#     model.add(BatchNormalization(axis=chan_dim))
-#     model.add(MaxPooling2D(pool_size=(3, 3)))
-#     model.add(Dropout(0.25))
-#     model.add(Conv2D(64, (3, 3), padding="same"))
-#     model.add(Activation("relu"))
-#     model.add(BatchNormalization(axis=chan_dim))
-#     model.add(Conv2D(64, (3, 3), padding="same"))
-#     model.add(Activation("relu"))
-#     model.add(BatchNormalization(axis=chan_dim))
-#     model.add(MaxPooling2D(pool_size=(2, 2)))
-#     model.add(Dropout(0.25))
-#     model.add(Conv2D(128, (3, 3), padding="same"))
-#     model.add(Activation("relu"))
-#     model.add(BatchNormalization(axis=chan_dim))
-#     model.add(Conv2D(128, (3, 3), padding="same"))
-#     model.add(Activation("relu"))
-#     model.add(BatchNormalization(axis=chan_dim))
-#     model.add(MaxPooling2D(pool_size=(2, 2)))
-#     model.add(Dropout(0.25))
-#     model.add(Flatten())
-#     model.add(Dense(1024))
-#     model.add(Activation("relu"))
-#     model.add(BatchNormalization())
-#     model.add(Dropout(0.5))
-#     model.add(Dense(n_classes))
-#     model.add(Activation("softmax"))
-#     return model
-
-
 def plot_training_history(history):
     acc = history.history["accuracy"]
     val_acc = history.history["val_accuracy"]
@@ -335,7 +275,7 @@ def main():
         f"{len(x_train_paths)}/{len(x_val_paths)}/{len(x_test_paths)}"
     )
 
-    model = build_model(n_classes)
+    model = build_model(n_classes, input_shape=(height, width, depth))
     model.summary()
     model.compile(
         loss="categorical_crossentropy",
