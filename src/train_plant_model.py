@@ -80,7 +80,7 @@ try:
             if image_path.is_file() and image_path.suffix.lower() in [".jpg", ".jpeg", ".png"]
         ]
 
-        for image_path in plant_disease_image_list[:200]:
+        for image_path in plant_disease_image_list[:]:
             converted_image = convert_image_to_array(str(image_path))
             if converted_image is not None and converted_image.size > 0:
                 image_list.append(converted_image)
@@ -95,7 +95,7 @@ image_size = len(image_list)
 #Transform Image Labels uisng Scikit Learn's LabelBinarizer
 models_dir.mkdir(parents=True, exist_ok=True)
 label_binarizer = LabelBinarizer()
-image_labels = label_binarizer.fit_transform(label_list)
+label_binarizer.fit(label_list)
 with open(models_dir / "label_transform.pkl", "wb") as label_file:
     pickle.dump(label_binarizer, label_file)
 n_classes = len(label_binarizer.classes_)
@@ -103,15 +103,33 @@ with open(models_dir / "class_names.json", "w", encoding="utf-8") as class_file:
     json.dump(label_binarizer.classes_.tolist(), class_file, indent=2)
 
 print(label_binarizer.classes_)
-np_image_list = np.array(image_list, dtype=np.float16) / 225.0
-print("[INFO] Spliting data to train, test")
-x_train, x_test, y_train, y_test = train_test_split(np_image_list, image_labels, test_size=0.2, random_state = 42) 
+np_image_list = np.array(image_list, dtype=np.float32) / 225.0
+image_labels = np.array(label_list)
+print("[INFO] Spliting data to train, validation, test")
+x_train, x_temp, y_train_labels, y_temp_labels = train_test_split(
+    np_image_list,
+    image_labels,
+    test_size=0.3,
+    random_state=42,
+    stratify=image_labels
+)
+x_val, x_test, y_val_labels, y_test_labels = train_test_split(
+    x_temp,
+    y_temp_labels,
+    test_size=0.5,
+    random_state=42,
+    stratify=y_temp_labels
+)
+y_train = label_binarizer.transform(y_train_labels)
+y_val = label_binarizer.transform(y_val_labels)
+y_test = label_binarizer.transform(y_test_labels)
 
-aug = ImageDataGenerator(
-    rotation_range=25, width_shift_range=0.1,
-    height_shift_range=0.1, shear_range=0.2, 
-    zoom_range=0.2,horizontal_flip=True, 
-    fill_mode="nearest")
+# #資料增強
+# aug = ImageDataGenerator(
+#     rotation_range=25, width_shift_range=0.1,
+#     height_shift_range=0.1, shear_range=0.2, 
+#     zoom_range=0.2,horizontal_flip=True, 
+#     fill_mode="nearest")
 
 model = Sequential()
 inputShape = (height, width, depth)
@@ -157,7 +175,7 @@ print("[INFO] training network...")
 
 history = model.fit(
     aug.flow(x_train, y_train, batch_size=BS),
-    validation_data=(x_test, y_test),
+    validation_data=(x_val, y_val),
     steps_per_epoch=len(x_train) // BS,
     epochs=EPOCHS, verbose=1
     )
