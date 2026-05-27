@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
 from tensorflow.keras.optimizers import Adam
 
+# train model
 from plant_models.advanced_cnn import build_model
 
 
