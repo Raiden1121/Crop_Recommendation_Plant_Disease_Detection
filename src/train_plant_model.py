@@ -12,9 +12,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
 from tensorflow.keras.optimizers import Adam
 
-from plant_models.baseline_cnn import build_model
-# To train the advanced CNN instead, change the import above to:
-# from plant_models.advanced_cnn import build_model
+#change model
+from plant_models.advanced_cnn import build_model
+
 
 
 EPOCHS = 25
