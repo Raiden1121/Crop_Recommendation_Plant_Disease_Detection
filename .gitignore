@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Python
 __pycache__/
 *.py[cod]
@@ -9,10 +10,14 @@ __pycache__/
 .ruff_cache/
 
 # Virtual environments
+=======
+# Virtual environment
+>>>>>>> master
 .venv/
 venv/
 env/
 
+<<<<<<< HEAD
 # Environment variables
 .env
 .env.*
@@ -48,3 +53,24 @@ models/*.joblib
 *.log
 tmp/
 temp/
+=======
+# Large model files
+models/plant_disease_model.keras
+
+# Large dataset
+data/plant_disease/PlantVillage/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+>>>>>>> master
