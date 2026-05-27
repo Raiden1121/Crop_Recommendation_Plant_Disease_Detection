@@ -1,23 +1,22 @@
-<<<<<<< HEAD
 # Python
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+.Python
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
 # Virtual environments
-=======
-# Virtual environment
->>>>>>> master
 .venv/
+.venv/**
 venv/
+venv/**
 env/
+env/**
 
-<<<<<<< HEAD
 # Environment variables
 .env
 .env.*
@@ -31,6 +30,9 @@ env/
 Thumbs.db
 *:Zone.Identifier
 
+# Jupyter
+.ipynb_checkpoints/
+
 # Local datasets
 # Keep dataset folders locally. Only .gitkeep files are tracked to preserve folder structure.
 data/**
@@ -40,20 +42,32 @@ data/**
 !data/crop/.gitkeep
 !data/plant_disease/
 !data/plant_disease/.gitkeep
+data/plant_disease/PlantVillage/
 
 # Model outputs
 models/*.pkl
 models/*.h5
 models/*.keras
 models/*.joblib
+models/plant/*.pkl
+models/plant/*.h5
+models/plant/*.keras
+models/plant/*.joblib
 !models/.gitkeep
 !models/class_names.json
+!models/plant/
+!models/plant/.gitkeep
+!models/plant/class_names.json
+
+# Generated figures
+models/*.png
+models/plant/*.png
 
 # Logs and temp files
 *.log
 tmp/
 temp/
-=======
+
 # Large model files
 models/plant_disease_model.keras
 
@@ -73,4 +87,3 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
->>>>>>> master

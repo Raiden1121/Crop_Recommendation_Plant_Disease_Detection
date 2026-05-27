@@ -15,6 +15,8 @@ from werkzeug.utils import secure_filename
 BASE_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent
 MODELS_DIR = BASE_DIR / "models"
+PLANT_MODELS_DIR = MODELS_DIR / "plant"
+PLANT_DISEASE_MODEL_PATH = PLANT_MODELS_DIR / "advanced_cnn.keras"
 UPLOAD_DIR = BACKEND_DIR / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -30,16 +32,16 @@ def load_crop_model():
 
 
 def load_disease_model():
-    return tf.keras.models.load_model(MODELS_DIR / "plant_disease_model.keras")
+    return tf.keras.models.load_model(PLANT_DISEASE_MODEL_PATH)
 
 
 def load_class_names():
-    class_names_path = MODELS_DIR / "class_names.json"
+    class_names_path = PLANT_MODELS_DIR / "class_names.json"
     if class_names_path.exists():
         with open(class_names_path, "r", encoding="utf-8") as file:
             return json.load(file)
 
-    label_transform_path = MODELS_DIR / "label_transform.pkl"
+    label_transform_path = PLANT_MODELS_DIR / "label_transform.pkl"
     if label_transform_path.exists():
         with open(label_transform_path, "rb") as file:
             encoder = pickle.load(file)
