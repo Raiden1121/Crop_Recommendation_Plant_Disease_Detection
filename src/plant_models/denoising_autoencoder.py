@@ -10,6 +10,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
+from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.optimizers import Adam
@@ -20,21 +21,37 @@ from tensorflow.keras.optimizers import Adam
 # ============================================================
 SEED = 42
 EPOCHS = 30
-AUTOENCODER_EPOCHS = 20
-FINE_TUNE_EPOCHS = 10
-INIT_LR = 1e-3
-FINE_TUNE_LR = 1e-5
+AUTOENCODER_EPOCHS = 12
+FINE_TUNE_EPOCHS = 12
+INIT_LR = 7e-4
+FINE_TUNE_LR = 2e-5
 BS = 16
 NOISE_FACTOR = 0.20
+DROPOUT_1 = 0.40
+DROPOUT_2 = 0.25
+LABEL_SMOOTHING = 0.03
+WEIGHT_DECAY = 1e-4
 FREEZE_ENCODER_FIRST = True
+USE_MIXED_PRECISION_ON_GPU = True
 
-# If this file is placed inside skeleton/ or scripts/, parents[1] is usually the project root.
-# Example project structure:
-# project/
-#   data/plant_disease/PlantVillage/
-#   models/
-#   skeleton/this_file.py
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# Automatically find the project root that contains data/plant_disease/PlantVillage.
+# This makes the file work whether it is placed in src/plant_models/, skeleton/, or project root.
+def find_project_root():
+    current_file = Path(__file__).resolve()
+    candidates = [current_file.parent, *current_file.parents]
+    for candidate in candidates:
+        dataset_candidate = candidate / "data" / "plant_disease" / "PlantVillage"
+        if dataset_candidate.exists():
+            return candidate
+
+    # Fallback for the common structure:
+    # project/src/plant_models/this_file.py
+    if len(current_file.parents) >= 3:
+        return current_file.parents[2]
+    return current_file.parents[1]
+
+
+PROJECT_ROOT = find_project_root()
 DATASET_DIR = PROJECT_ROOT / "data" / "plant_disease" / "PlantVillage"
 MODELS_DIR = PROJECT_ROOT / "models"
 PLANT_MODELS_DIR = MODELS_DIR / "plant"
@@ -60,6 +77,19 @@ def set_seed(seed=SEED):
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)
+
+
+def configure_mixed_precision():
+    """Use mixed precision on GPU for faster training. Output layer stays float32."""
+    if not USE_MIXED_PRECISION_ON_GPU:
+        return
+    gpus = tf.config.list_physical_devices("GPU")
+    if gpus:
+        try:
+            tf.keras.mixed_precision.set_global_policy("mixed_float16")
+            print("[INFO] Mixed precision enabled: mixed_float16")
+        except Exception as error:
+            print(f"[WARNING] Could not enable mixed precision: {error}")
 
 
 # ============================================================
@@ -284,41 +314,53 @@ def build_autoencoder_dataset(image_paths, training=False):
 # ============================================================
 # Denoising Autoencoder model
 # ============================================================
+def conv_bn_relu(x, filters, kernel_size=3, name=None):
+    x = layers.Conv2D(
+        filters,
+        kernel_size,
+        padding="same",
+        use_bias=False,
+        kernel_regularizer=tf.keras.regularizers.l2(WEIGHT_DECAY),
+        name=None if name is None else f"{name}_conv",
+    )(x)
+    x = layers.BatchNormalization(name=None if name is None else f"{name}_bn")(x)
+    x = layers.Activation("relu", name=None if name is None else f"{name}_relu")(x)
+    return x
+
+
 def build_denoising_autoencoder(input_shape=(256, 256, 3)):
     inputs = layers.Input(shape=input_shape, name="noisy_image_input")
 
-    # Encoder: 256 -> 128 -> 64 -> 32
-    x = layers.Conv2D(32, (3, 3), padding="same", use_bias=False)(inputs)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
+    # Encoder: 256 -> 128 -> 64 -> 32 -> 16
+    x = conv_bn_relu(inputs, 32, name="enc1a")
+    x = conv_bn_relu(x, 32, name="enc1b")
     x = layers.MaxPooling2D((2, 2), padding="same")(x)
 
-    x = layers.Conv2D(64, (3, 3), padding="same", use_bias=False)(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
+    x = conv_bn_relu(x, 64, name="enc2a")
+    x = conv_bn_relu(x, 64, name="enc2b")
     x = layers.MaxPooling2D((2, 2), padding="same")(x)
 
-    x = layers.Conv2D(128, (3, 3), padding="same", use_bias=False)(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
+    x = conv_bn_relu(x, 128, name="enc3a")
+    x = conv_bn_relu(x, 128, name="enc3b")
+    x = layers.MaxPooling2D((2, 2), padding="same")(x)
+
+    x = conv_bn_relu(x, 256, name="enc4a")
+    x = conv_bn_relu(x, 256, name="enc4b")
     encoded = layers.MaxPooling2D((2, 2), padding="same", name="encoded_features")(x)
 
     encoder = models.Model(inputs, encoded, name="denoising_encoder")
 
-    # Decoder: 32 -> 64 -> 128 -> 256
-    x = layers.Conv2D(128, (3, 3), padding="same", use_bias=False)(encoded)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
+    # Decoder: 16 -> 32 -> 64 -> 128 -> 256
+    x = conv_bn_relu(encoded, 256, name="dec1a")
     x = layers.UpSampling2D((2, 2))(x)
 
-    x = layers.Conv2D(64, (3, 3), padding="same", use_bias=False)(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
+    x = conv_bn_relu(x, 128, name="dec2a")
     x = layers.UpSampling2D((2, 2))(x)
 
-    x = layers.Conv2D(32, (3, 3), padding="same", use_bias=False)(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
+    x = conv_bn_relu(x, 64, name="dec3a")
+    x = layers.UpSampling2D((2, 2))(x)
+
+    x = conv_bn_relu(x, 32, name="dec4a")
     x = layers.UpSampling2D((2, 2))(x)
 
     decoded = layers.Conv2D(
@@ -326,24 +368,23 @@ def build_denoising_autoencoder(input_shape=(256, 256, 3)):
         (3, 3),
         padding="same",
         activation="sigmoid",
+        dtype="float32",
         name="reconstructed_image",
     )(x)
 
     autoencoder = models.Model(inputs, decoded, name="denoising_autoencoder")
     return autoencoder, encoder
 
-
 def build_classifier_from_encoder(encoder, n_classes):
     inputs = layers.Input(shape=(height, width, depth), name="plant_image_input")
 
     augmentation = models.Sequential(
         [
-            layers.RandomFlip("horizontal"),
+            layers.RandomFlip("horizontal_and_vertical"),
             layers.RandomRotation(0.10),
-            layers.RandomZoom(0.15),
-            layers.RandomTranslation(0.08, 0.08),
+            layers.RandomZoom(0.12),
             layers.RandomContrast(0.15),
-            layers.RandomBrightness(0.08),
+            layers.RandomTranslation(0.05, 0.05),
         ],
         name="data_augmentation",
     )
@@ -351,26 +392,36 @@ def build_classifier_from_encoder(encoder, n_classes):
     x = augmentation(inputs)
     x = encoder(x)
 
-    x = layers.Conv2D(256, (3, 3), padding="same", use_bias=False)(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
-
-    x = layers.Conv2D(256, (3, 3), padding="same", use_bias=False)(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Activation("relu")(x)
+    x = conv_bn_relu(x, 256, name="clf1a")
+    x = layers.SpatialDropout2D(0.15)(x)
+    x = conv_bn_relu(x, 256, name="clf1b")
 
     x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dense(384, activation="relu")(x)
+    x = layers.Dense(
+        384,
+        activation="relu",
+        kernel_regularizer=tf.keras.regularizers.l2(WEIGHT_DECAY),
+    )(x)
     x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.45)(x)
-    x = layers.Dense(192, activation="relu")(x)
+    x = layers.Dropout(DROPOUT_1)(x)
+
+    x = layers.Dense(
+        192,
+        activation="relu",
+        kernel_regularizer=tf.keras.regularizers.l2(WEIGHT_DECAY),
+    )(x)
     x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.30)(x)
-    outputs = layers.Dense(n_classes, activation="softmax", name="class_output")(x)
+    x = layers.Dropout(DROPOUT_2)(x)
+
+    outputs = layers.Dense(
+        n_classes,
+        activation="softmax",
+        dtype="float32",
+        name="class_output",
+    )(x)
 
     model = models.Model(inputs, outputs, name="denoising_autoencoder_classifier")
     return model
-
 
 # ============================================================
 # Helpers
@@ -386,9 +437,22 @@ def make_one_hot_labels(label_binarizer, label_array):
     return labels
 
 
-def build_callbacks(model_path, monitor="val_loss"):
-    # val_accuracy 越高越好；val_loss 越低越好。
-    mode = "max" if "accuracy" in monitor else "min"
+def make_class_weights(y_train_labels, label_binarizer):
+    class_weights = compute_class_weight(
+        class_weight="balanced",
+        classes=label_binarizer.classes_,
+        y=y_train_labels,
+    )
+    class_weight_dict = {
+        index: float(weight) for index, weight in enumerate(class_weights)
+    }
+    print(f"[INFO] Class weights: {class_weight_dict}")
+    return class_weight_dict
+
+
+def build_callbacks(model_path, monitor="val_loss", mode=None):
+    if mode is None:
+        mode = "max" if "accuracy" in monitor else "min"
 
     return [
         ModelCheckpoint(
@@ -401,7 +465,7 @@ def build_callbacks(model_path, monitor="val_loss"):
         EarlyStopping(
             monitor=monitor,
             mode=mode,
-            patience=8,
+            patience=7,
             restore_best_weights=True,
             verbose=1,
         ),
@@ -421,40 +485,36 @@ def plot_classification_history(history, prefix="training"):
     val_acc = history.history.get("val_accuracy", [])
     loss = history.history.get("loss", [])
     val_loss = history.history.get("val_loss", [])
+    epochs = range(1, len(loss) + 1)
 
-    if not acc or not val_acc or not loss or not val_loss:
-        print("[WARNING] History does not contain accuracy/loss data, skip plotting.")
-        return
+    if acc and val_acc:
+        accuracy_path = PLANT_MODELS_DIR / f"{prefix}_accuracy.png"
+        plt.figure()
+        plt.plot(epochs, acc, label="Training accuracy")
+        plt.plot(epochs, val_acc, label="Validation accuracy")
+        plt.title("Training and Validation Accuracy")
+        plt.xlabel("Epoch")
+        plt.ylabel("Accuracy")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(accuracy_path, dpi=150)
+        plt.close()
+        print(f"[INFO] Saved accuracy curve to {accuracy_path}")
 
-    epochs = range(1, len(acc) + 1)
-    accuracy_path = PLANT_MODELS_DIR / f"{prefix}_accuracy.png"
-    loss_path = PLANT_MODELS_DIR / f"{prefix}_loss.png"
+    if loss and val_loss:
+        loss_path = PLANT_MODELS_DIR / f"{prefix}_loss.png"
+        plt.figure()
+        plt.plot(epochs, loss, label="Training loss")
+        plt.plot(epochs, val_loss, label="Validation loss")
+        plt.title("Training and Validation Loss")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(loss_path, dpi=150)
+        plt.close()
+        print(f"[INFO] Saved loss curve to {loss_path}")
 
-    plt.figure()
-    plt.plot(epochs, acc, "b", label="Training accuracy")
-    plt.plot(epochs, val_acc, "r", label="Validation accuracy")
-    plt.title("Training and Validation Accuracy")
-    plt.xlabel("Epoch")
-    plt.ylabel("Accuracy")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(accuracy_path, dpi=150)
-    plt.show()
-    plt.close()
-    print(f"[INFO] Saved accuracy curve to {accuracy_path}")
-
-    plt.figure()
-    plt.plot(epochs, loss, "b", label="Training loss")
-    plt.plot(epochs, val_loss, "r", label="Validation loss")
-    plt.title("Training and Validation Loss")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(loss_path, dpi=150)
-    plt.show()
-    plt.close()
-    print(f"[INFO] Saved loss curve to {loss_path}")
 
 def plot_autoencoder_history(history):
     loss = history.history.get("loss", [])
@@ -472,7 +532,6 @@ def plot_autoencoder_history(history):
     plt.legend()
     plt.tight_layout()
     plt.savefig(output_path, dpi=150)
-    plt.show()
     plt.close()
 
     print(f"[INFO] Saved autoencoder loss curve to {output_path}")
@@ -497,6 +556,10 @@ def save_training_config(n_classes):
         "initial_learning_rate": INIT_LR,
         "fine_tune_learning_rate": FINE_TUNE_LR,
         "noise_factor": NOISE_FACTOR,
+        "dropout_1": DROPOUT_1,
+        "dropout_2": DROPOUT_2,
+        "label_smoothing": LABEL_SMOOTHING,
+        "weight_decay": WEIGHT_DECAY,
         "n_classes": n_classes,
         "dataset_dir": str(DATASET_DIR),
     }
@@ -512,6 +575,7 @@ def save_training_config(n_classes):
 # ============================================================
 def main():
     set_seed(SEED)
+    configure_mixed_precision()
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     PLANT_MODELS_DIR.mkdir(parents=True, exist_ok=True)
     print_training_device()
@@ -549,6 +613,7 @@ def main():
     y_train = make_one_hot_labels(label_binarizer, y_train_labels)
     y_val = make_one_hot_labels(label_binarizer, y_val_labels)
     y_test = make_one_hot_labels(label_binarizer, y_test_labels)
+    class_weight_dict = make_class_weights(y_train_labels, label_binarizer)
 
     train_ds = build_classification_dataset(x_train_paths, y_train, training=True)
     val_ds = build_classification_dataset(x_val_paths, y_val)
@@ -578,7 +643,7 @@ def main():
         autoencoder_train_ds,
         validation_data=autoencoder_val_ds,
         epochs=AUTOENCODER_EPOCHS,
-        callbacks=build_callbacks(AUTOENCODER_MODEL_PATH, monitor="val_loss"),
+        callbacks=build_callbacks(AUTOENCODER_MODEL_PATH, monitor="val_loss", mode="min"),
         verbose=1,
     )
     plot_autoencoder_history(autoencoder_history)
@@ -594,7 +659,7 @@ def main():
     model = build_classifier_from_encoder(encoder, n_classes)
     model.summary()
     model.compile(
-        loss="categorical_crossentropy",
+        loss=tf.keras.losses.CategoricalCrossentropy(label_smoothing=LABEL_SMOOTHING),
         optimizer=Adam(learning_rate=INIT_LR),
         metrics=["accuracy"],
     )
@@ -604,7 +669,8 @@ def main():
         train_ds,
         validation_data=val_ds,
         epochs=EPOCHS,
-        callbacks=build_callbacks(BEST_MODEL_PATH, monitor="val_accuracy"),
+        callbacks=build_callbacks(BEST_MODEL_PATH, monitor="val_accuracy", mode="max"),
+        class_weight=class_weight_dict,
         verbose=1,
     )
     plot_classification_history(history, prefix="classifier")
@@ -613,7 +679,7 @@ def main():
         print("[INFO] Fine-tuning classifier with encoder unfrozen...")
         encoder.trainable = True
         model.compile(
-            loss="categorical_crossentropy",
+            loss=tf.keras.losses.CategoricalCrossentropy(label_smoothing=LABEL_SMOOTHING),
             optimizer=Adam(learning_rate=FINE_TUNE_LR),
             metrics=["accuracy"],
         )
@@ -621,10 +687,15 @@ def main():
             train_ds,
             validation_data=val_ds,
             epochs=FINE_TUNE_EPOCHS,
-            callbacks=build_callbacks(BEST_MODEL_PATH, monitor="val_accuracy"),
+            callbacks=build_callbacks(BEST_MODEL_PATH, monitor="val_accuracy", mode="max"),
+            class_weight=class_weight_dict,
             verbose=1,
         )
         plot_classification_history(fine_tune_history, prefix="fine_tune")
+
+    if BEST_MODEL_PATH.exists():
+        print(f"[INFO] Loading best classifier model from {BEST_MODEL_PATH}")
+        model = tf.keras.models.load_model(BEST_MODEL_PATH)
 
     print("[INFO] Calculating model accuracy")
     scores = model.evaluate(test_ds, verbose=1)
