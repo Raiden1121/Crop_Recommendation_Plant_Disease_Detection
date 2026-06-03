@@ -12,17 +12,19 @@ from sklearn.preprocessing import LabelBinarizer
 from tensorflow.keras.optimizers import Adam
 
 # train model
-from plant_models.advanced_cnn import build_model
+import plant_models.smooth_advanCNN as plant_model
 
 
 EPOCHS = 25
-INIT_LR = 1e-3
+DEFAULT_INIT_LR = 1e-3
+INIT_LR = getattr(plant_model, "INIT_LR", DEFAULT_INIT_LR)
 BS = 16
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATASET_DIR = PROJECT_ROOT / "data" / "plant_disease" / "PlantVillage"
 MODELS_DIR = PROJECT_ROOT / "models"
 PLANT_MODELS_DIR = MODELS_DIR / "plant"
+build_model = plant_model.build_model
 PLANT_MODEL_NAME = build_model.__module__.rsplit(".", 1)[-1]
 PLANT_MODEL_PATH = PLANT_MODELS_DIR / f"{PLANT_MODEL_NAME}.keras"
 
@@ -231,6 +233,17 @@ def save_label_files(label_binarizer):
         json.dump(label_binarizer.classes_.tolist(), class_file, indent=2)
 
 
+def build_training_callbacks():
+    callback_builder = getattr(plant_model, "build_callbacks", None)
+    if callback_builder is None:
+        return []
+
+    try:
+        return callback_builder(PLANT_MODELS_DIR)
+    except TypeError:
+        return callback_builder()
+
+
 def main():
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     PLANT_MODELS_DIR.mkdir(parents=True, exist_ok=True)
@@ -273,6 +286,7 @@ def main():
     test_ds = build_dataset(x_test_paths, y_test)
 
     print(f"[INFO] Batch size: {BS}")
+    print(f"[INFO] Initial learning rate: {INIT_LR}")
     print(
         "[INFO] Train/validation/test images: "
         f"{len(x_train_paths)}/{len(x_val_paths)}/{len(x_test_paths)}"
@@ -291,6 +305,7 @@ def main():
         train_ds,
         validation_data=val_ds,
         epochs=EPOCHS,
+        callbacks=build_training_callbacks(),
         verbose=1,
     )
 
