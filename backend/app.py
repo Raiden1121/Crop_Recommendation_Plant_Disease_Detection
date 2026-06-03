@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import pickle
+import sys
 from pathlib import Path
 
 import joblib
@@ -14,11 +15,19 @@ from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent
+SRC_DIR = BASE_DIR / "src"
 MODELS_DIR = BASE_DIR / "models"
 PLANT_MODELS_DIR = MODELS_DIR / "plant"
-PLANT_DISEASE_MODEL_PATH = PLANT_MODELS_DIR / "advanced_cnn.keras"
+PLANT_DISEASE_MODEL_PATH = PLANT_MODELS_DIR / "best_ensemble_dl_plant_disease_model.keras"
 UPLOAD_DIR = BACKEND_DIR / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+# Import custom Keras layers before load_model so .keras files can be restored.
+import plant_models.EnsembleDL  # noqa: E402, F401
+import plant_models.transformer  # noqa: E402, F401
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
