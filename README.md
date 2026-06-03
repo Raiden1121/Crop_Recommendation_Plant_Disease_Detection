@@ -136,3 +136,41 @@ source .venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
+
+## 網頁啟動方式
+
+請先確認已完成環境建立與套件安裝，並且模型檔案已放在指定位置：
+
+```text
+models/
+  crop_model.pkl
+  plant/
+    best_vit_plant_disease_model.keras
+    class_names.json
+```
+
+啟動 Flask 網頁：
+
+```bash
+python backend/app.py
+```
+
+如果使用專案內的虛擬環境，也可以直接執行：
+
+```bash
+.venv/bin/python backend/app.py
+```
+
+啟動後在瀏覽器開啟：
+
+```text
+http://127.0.0.1:5000
+```
+
+可使用的頁面：
+
+- 首頁：`http://127.0.0.1:5000/`
+- 作物推薦：`http://127.0.0.1:5000/crop`
+- 植物病害辨識：`http://127.0.0.1:5000/disease`
+
+注意：如果 `crop_model.pkl` 或植物病害模型 `.keras` 檔案不存在，網頁啟動時會因為無法載入模型而失敗。
