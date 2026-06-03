@@ -103,7 +103,7 @@ const translations = {
         "home.metricDiseaseTitle": "葉片影像分類",
         "home.metricDiseaseDesc": "上傳植物葉片影像，辨識可能的病害類別。",
         "home.modules": "專案模組",
-        "home.workflowTitle": "兩個核心 ML 流程",
+        "home.workflowTitle": "核心 ML 流程",
         "home.workflowDesc": "分別提供表格資料預測與影像診斷介面，適合課堂展示與現場 Demo。",
         "home.cropCardDesc": "輸入土壤養分與環境條件，讓訓練好的模型推薦適合作物。",
         "home.cropPoint1": "結構化數值輸入表單",
