@@ -101,10 +101,23 @@ def predict_crop():
         values = [float(request.form[field]) for field in field_names]
         features = np.array([values], dtype=np.float32)
         prediction = crop_model.predict(features)[0]
+        crop_probabilities = []
+
+        if hasattr(crop_model, "predict_proba") and hasattr(crop_model, "classes_"):
+            probabilities = crop_model.predict_proba(features)[0]
+            top_indices = np.argsort(probabilities)[::-1][:3]
+            crop_probabilities = [
+                {
+                    "crop": crop_model.classes_[index],
+                    "probability": round(float(probabilities[index]) * 100, 2),
+                }
+                for index in top_indices
+            ]
 
         return render_template(
             "crop.html",
             prediction=prediction,
+            crop_probabilities=crop_probabilities,
             form_data=request.form,
         )
     except Exception as exc:
