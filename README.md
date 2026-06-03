@@ -143,9 +143,9 @@ pip install -r requirements.txt
 
 ```text
 models/
-  crop_model.pkl
+    crop/crop_model.pkl
   plant/
-    best_vit_plant_disease_model.keras
+    plant_disease_model.keras
     class_names.json
 ```
 
