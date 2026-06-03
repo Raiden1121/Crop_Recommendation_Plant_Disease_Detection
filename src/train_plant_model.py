@@ -12,7 +12,7 @@ from sklearn.preprocessing import LabelBinarizer
 from tensorflow.keras.optimizers import Adam
 
 # train model
-import plant_models.smooth_advanCNN as plant_model
+import plant_models.transformer as plant_model
 
 
 EPOCHS = 25
@@ -153,7 +153,7 @@ def show_sample_images(class_to_paths):
         if sample_paths:
             image = plt.imread(sample_paths[0])
             plt.imshow(image)
-        plt.title(class_name, fontsize=8)
+        plt.title(class_name, fontsize=16, wrap=True)
         plt.axis("off")
 
     plt.tight_layout()
