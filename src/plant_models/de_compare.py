@@ -10,10 +10,12 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
-from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.optimizers import Adam
+from sklearn.utils.class_weight import compute_class_weight
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
 
 
 # ============================================================
@@ -23,35 +25,22 @@ SEED = 42
 EPOCHS = 25
 AUTOENCODER_EPOCHS = 12
 FINE_TUNE_EPOCHS = 12
-INIT_LR = 7e-4
-FINE_TUNE_LR = 2e-5
-BS = 16
-NOISE_FACTOR = 0.24
+INIT_LR = 1e-3
+FINE_TUNE_LR = 1e-5
+BS = 8
+NOISE_FACTOR = 0.20
+FREEZE_ENCODER_FIRST = True
 DROPOUT_1 = 0.45
 DROPOUT_2 = 0.25
-LABEL_SMOOTHING = 0.05
 WEIGHT_DECAY = 1e-4
-FREEZE_ENCODER_FIRST = True
-USE_MIXED_PRECISION_ON_GPU = True
 
-# Automatically find the project root that contains data/plant_disease/PlantVillage.
-# This makes the file work whether it is placed in src/plant_models/, skeleton/, or project root.
-def find_project_root():
-    current_file = Path(__file__).resolve()
-    candidates = [current_file.parent, *current_file.parents]
-    for candidate in candidates:
-        dataset_candidate = candidate / "data" / "plant_disease" / "PlantVillage"
-        if dataset_candidate.exists():
-            return candidate
-
-    # Fallback for the common structure:
-    # project/src/plant_models/this_file.py
-    if len(current_file.parents) >= 3:
-        return current_file.parents[2]
-    return current_file.parents[1]
-
-
-PROJECT_ROOT = find_project_root()
+# If this file is placed inside skeleton/ or scripts/, parents[1] is usually the project root.
+# Example project structure:
+# project/
+#   data/plant_disease/PlantVillage/
+#   models/
+#   skeleton/this_file.py
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATASET_DIR = PROJECT_ROOT / "data" / "plant_disease" / "PlantVillage"
 MODELS_DIR = PROJECT_ROOT / "models"
 PLANT_MODELS_DIR = MODELS_DIR / "plant"
@@ -77,19 +66,6 @@ def set_seed(seed=SEED):
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)
-
-
-def configure_mixed_precision():
-    """Use mixed precision on GPU for faster training. Output layer stays float32."""
-    if not USE_MIXED_PRECISION_ON_GPU:
-        return
-    gpus = tf.config.list_physical_devices("GPU")
-    if gpus:
-        try:
-            tf.keras.mixed_precision.set_global_policy("mixed_float16")
-            print("[INFO] Mixed precision enabled: mixed_float16")
-        except Exception as error:
-            print(f"[WARNING] Could not enable mixed precision: {error}")
 
 
 # ============================================================
@@ -310,7 +286,6 @@ def build_autoencoder_dataset(image_paths, training=False):
     dataset = dataset.prefetch(AUTOTUNE)
     return dataset
 
-
 # ============================================================
 # Denoising Autoencoder model
 # ============================================================
@@ -368,12 +343,12 @@ def build_denoising_autoencoder(input_shape=(256, 256, 3)):
         (3, 3),
         padding="same",
         activation="sigmoid",
-        dtype="float32",
         name="reconstructed_image",
     )(x)
 
     autoencoder = models.Model(inputs, decoded, name="denoising_autoencoder")
     return autoencoder, encoder
+
 
 def build_classifier_from_encoder(encoder, n_classes):
     inputs = layers.Input(shape=(height, width, depth), name="plant_image_input")
@@ -397,6 +372,7 @@ def build_classifier_from_encoder(encoder, n_classes):
     x = conv_bn_relu(x, 256, name="clf1b")
 
     x = layers.GlobalAveragePooling2D()(x)
+
     x = layers.Dense(
         384,
         activation="relu",
@@ -416,7 +392,6 @@ def build_classifier_from_encoder(encoder, n_classes):
     outputs = layers.Dense(
         n_classes,
         activation="softmax",
-        dtype="float32",
         name="class_output",
     )(x)
 
@@ -436,23 +411,23 @@ def make_one_hot_labels(label_binarizer, label_array):
 
     return labels
 
-
 def make_class_weights(y_train_labels, label_binarizer):
     class_weights = compute_class_weight(
         class_weight="balanced",
         classes=label_binarizer.classes_,
         y=y_train_labels,
     )
+
     class_weight_dict = {
         index: float(weight) for index, weight in enumerate(class_weights)
     }
+
     print(f"[INFO] Class weights: {class_weight_dict}")
     return class_weight_dict
 
-
-def build_callbacks(model_path, monitor="val_loss", mode=None):
-    if mode is None:
-        mode = "max" if "accuracy" in monitor else "min"
+def build_callbacks(model_path, monitor="val_loss"):
+    # val_accuracy 越高越好；val_loss 越低越好。
+    mode = "max" if "accuracy" in monitor else "min"
 
     return [
         ModelCheckpoint(
@@ -465,7 +440,7 @@ def build_callbacks(model_path, monitor="val_loss", mode=None):
         EarlyStopping(
             monitor=monitor,
             mode=mode,
-            patience=7,
+            patience=8,
             restore_best_weights=True,
             verbose=1,
         ),
@@ -485,37 +460,85 @@ def plot_classification_history(history, prefix="training"):
     val_acc = history.history.get("val_accuracy", [])
     loss = history.history.get("loss", [])
     val_loss = history.history.get("val_loss", [])
-    epochs = range(1, len(loss) + 1)
 
-    if acc and val_acc:
-        accuracy_path = PLANT_MODELS_DIR / f"{prefix}_accuracy.png"
-        plt.figure()
-        plt.plot(epochs, acc, label="Training accuracy")
-        plt.plot(epochs, val_acc, label="Validation accuracy")
-        plt.title("Training and Validation Accuracy")
-        plt.xlabel("Epoch")
-        plt.ylabel("Accuracy")
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig(accuracy_path, dpi=150)
-        plt.show()
-        plt.close()
-        print(f"[INFO] Saved accuracy curve to {accuracy_path}")
+    if not acc or not val_acc or not loss or not val_loss:
+        print("[WARNING] History does not contain accuracy/loss data, skip plotting.")
+        return
 
-    if loss and val_loss:
-        loss_path = PLANT_MODELS_DIR / f"{prefix}_loss.png"
-        plt.figure()
-        plt.plot(epochs, loss, label="Training loss")
-        plt.plot(epochs, val_loss, label="Validation loss")
-        plt.title("Training and Validation Loss")
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig(loss_path, dpi=150)
-        plt.show()
-        plt.close()
-        print(f"[INFO] Saved loss curve to {loss_path}")
+    epochs = range(1, len(acc) + 1)
+    accuracy_path = PLANT_MODELS_DIR / f"{prefix}_accuracy.png"
+    loss_path = PLANT_MODELS_DIR / f"{prefix}_loss.png"
+
+    plt.figure()
+    plt.plot(epochs, acc, "b", label="Training accuracy")
+    plt.plot(epochs, val_acc, "r", label="Validation accuracy")
+    plt.title("Training and Validation Accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(accuracy_path, dpi=150)
+    plt.show()
+    plt.close()
+    print(f"[INFO] Saved accuracy curve to {accuracy_path}")
+
+    plt.figure()
+    plt.plot(epochs, loss, "b", label="Training loss")
+    plt.plot(epochs, val_loss, "r", label="Validation loss")
+    plt.title("Training and Validation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(loss_path, dpi=150)
+    plt.show()
+    plt.close()
+    print(f"[INFO] Saved loss curve to {loss_path}")
+
+def check_encoder_features(encoder, dataset, label_binarizer, output_path):
+    print("\n[DEBUG] Extracting encoder features...")
+
+    features = []
+    true_labels = []
+
+    for images, labels in dataset:
+        encoded = encoder.predict(images, verbose=0)
+
+        # 把 feature map 壓平成一條向量
+        encoded_flat = encoded.reshape(encoded.shape[0], -1)
+
+        features.append(encoded_flat)
+        true_labels.extend(np.argmax(labels.numpy(), axis=1))
+
+    features = np.concatenate(features, axis=0)
+    true_labels = np.array(true_labels)
+
+    print("[DEBUG] Feature shape:", features.shape)
+    print("[DEBUG] True label shape:", true_labels.shape)
+
+    print("[DEBUG] Running PCA...")
+    pca = PCA(n_components=2)
+    features_2d = pca.fit_transform(features)
+
+    plt.figure(figsize=(10, 8))
+    scatter = plt.scatter(
+        features_2d[:, 0],
+        features_2d[:, 1],
+        c=true_labels,
+        s=8,
+        alpha=0.7
+    )
+    plt.title("Encoder Feature PCA")
+    plt.xlabel("PC1")
+    plt.ylabel("PC2")
+    plt.colorbar(scatter)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150)
+    plt.show()
+    plt.close()
+
+    print(f"[DEBUG] Saved encoder feature PCA plot to {output_path}")
+
 
 
 def plot_autoencoder_history(history):
@@ -540,64 +563,6 @@ def plot_autoencoder_history(history):
     print(f"[INFO] Saved autoencoder loss curve to {output_path}")
 
 
-
-def merge_classification_histories(*histories):
-    """Merge classifier and fine-tune histories into one final curve."""
-    merged = {
-        "accuracy": [],
-        "val_accuracy": [],
-        "loss": [],
-        "val_loss": [],
-    }
-
-    for history in histories:
-        if history is None:
-            continue
-        for key in merged:
-            merged[key].extend(history.history.get(key, []))
-
-    return merged
-
-
-def plot_final_accuracy_loss(merged_history):
-    """Save one final Accuracy & Loss figure only, without stage-by-stage figures."""
-    acc = merged_history.get("accuracy", [])
-    val_acc = merged_history.get("val_accuracy", [])
-    loss = merged_history.get("loss", [])
-    val_loss = merged_history.get("val_loss", [])
-
-    if not acc or not val_acc or not loss or not val_loss:
-        print("[WARNING] Not enough classification history to draw final accuracy/loss plot.")
-        return
-
-    epochs = range(1, len(acc) + 1)
-    output_path = PLANT_MODELS_DIR / "final_accuracy_loss.png"
-
-    plt.figure(figsize=(14, 6))
-
-    plt.subplot(1, 2, 1)
-    plt.plot(epochs, acc, label="Training accuracy")
-    plt.plot(epochs, val_acc, label="Validation accuracy")
-    plt.title("Training and Validation Accuracy")
-    plt.xlabel("Epoch")
-    plt.ylabel("Accuracy")
-    plt.legend()
-
-    plt.subplot(1, 2, 2)
-    plt.plot(epochs, loss, label="Training loss")
-    plt.plot(epochs, val_loss, label="Validation loss")
-    plt.title("Training and Validation Loss")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-
-    plt.suptitle("Denoising Autoencoder - Accuracy & Loss", fontsize=18, fontweight="bold")
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300)
-    plt.close()
-
-    print(f"[INFO] Saved final accuracy/loss plot to {output_path}")
-
 def save_label_files(label_binarizer):
     with open(PLANT_MODELS_DIR / "label_transform.pkl", "wb") as label_file:
         pickle.dump(label_binarizer, label_file)
@@ -617,13 +582,8 @@ def save_training_config(n_classes):
         "initial_learning_rate": INIT_LR,
         "fine_tune_learning_rate": FINE_TUNE_LR,
         "noise_factor": NOISE_FACTOR,
-        "dropout_1": DROPOUT_1,
-        "dropout_2": DROPOUT_2,
-        "label_smoothing": LABEL_SMOOTHING,
-        "weight_decay": WEIGHT_DECAY,
         "n_classes": n_classes,
         "dataset_dir": str(DATASET_DIR),
-        "final_plot": "final_accuracy_loss.png",
     }
 
     output_path = PLANT_MODELS_DIR / "training_config.json"
@@ -637,7 +597,6 @@ def save_training_config(n_classes):
 # ============================================================
 def main():
     set_seed(SEED)
-    configure_mixed_precision()
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     PLANT_MODELS_DIR.mkdir(parents=True, exist_ok=True)
     print_training_device()
@@ -675,6 +634,7 @@ def main():
     y_train = make_one_hot_labels(label_binarizer, y_train_labels)
     y_val = make_one_hot_labels(label_binarizer, y_val_labels)
     y_test = make_one_hot_labels(label_binarizer, y_test_labels)
+
     class_weight_dict = make_class_weights(y_train_labels, label_binarizer)
 
     train_ds = build_classification_dataset(x_train_paths, y_train, training=True)
@@ -705,10 +665,10 @@ def main():
         autoencoder_train_ds,
         validation_data=autoencoder_val_ds,
         epochs=AUTOENCODER_EPOCHS,
-        callbacks=build_callbacks(AUTOENCODER_MODEL_PATH, monitor="val_loss", mode="min"),
+        callbacks=build_callbacks(AUTOENCODER_MODEL_PATH, monitor="val_loss"),
         verbose=1,
     )
-    # Autoencoder reconstruction plot is not generated because only the final Accuracy/Loss plot is needed.
+    plot_autoencoder_history(autoencoder_history)
 
     print(f"[INFO] Saving encoder to {ENCODER_MODEL_PATH}")
     encoder.save(ENCODER_MODEL_PATH)
@@ -721,7 +681,7 @@ def main():
     model = build_classifier_from_encoder(encoder, n_classes)
     model.summary()
     model.compile(
-        loss=tf.keras.losses.CategoricalCrossentropy(label_smoothing=LABEL_SMOOTHING),
+        loss="categorical_crossentropy",
         optimizer=Adam(learning_rate=INIT_LR),
         metrics=["accuracy"],
     )
@@ -731,17 +691,17 @@ def main():
         train_ds,
         validation_data=val_ds,
         epochs=EPOCHS,
-        callbacks=build_callbacks(BEST_MODEL_PATH, monitor="val_accuracy", mode="max"),
+        callbacks=build_callbacks(BEST_MODEL_PATH, monitor="val_accuracy"),
         class_weight=class_weight_dict,
         verbose=1,
     )
-    fine_tune_history = None
+    plot_classification_history(history, prefix="classifier")
 
     if FREEZE_ENCODER_FIRST and FINE_TUNE_EPOCHS > 0:
         print("[INFO] Fine-tuning classifier with encoder unfrozen...")
         encoder.trainable = True
         model.compile(
-            loss=tf.keras.losses.CategoricalCrossentropy(label_smoothing=LABEL_SMOOTHING),
+            loss="categorical_crossentropy",
             optimizer=Adam(learning_rate=FINE_TUNE_LR),
             metrics=["accuracy"],
         )
@@ -749,19 +709,66 @@ def main():
             train_ds,
             validation_data=val_ds,
             epochs=FINE_TUNE_EPOCHS,
-            callbacks=build_callbacks(BEST_MODEL_PATH, monitor="val_accuracy", mode="max"),
+            callbacks=build_callbacks(BEST_MODEL_PATH, monitor="val_accuracy"),
             class_weight=class_weight_dict,
             verbose=1,
         )
-    final_history = merge_classification_histories(history, fine_tune_history)
-    plot_final_accuracy_loss(final_history)
-
-    if BEST_MODEL_PATH.exists():
-        print(f"[INFO] Loading best classifier model from {BEST_MODEL_PATH}")
-        model = tf.keras.models.load_model(BEST_MODEL_PATH)
+        plot_classification_history(fine_tune_history, prefix="fine_tune")
 
     print("[INFO] Calculating model accuracy")
     scores = model.evaluate(test_ds, verbose=1)
+
+    check_encoder_features(
+    encoder,
+    test_ds,
+    label_binarizer,
+    PLANT_MODELS_DIR / "encoder_feature_pca.png"
+)
+
+
+    print("\n[DEBUG] Checking prediction confidence...")
+
+    y_pred_prob = model.predict(test_ds)
+    y_pred = np.argmax(y_pred_prob, axis=1)
+    max_confidence = np.max(y_pred_prob, axis=1)
+
+    print("[DEBUG] Average max confidence:", np.mean(max_confidence))
+    print("[DEBUG] Min max confidence:", np.min(max_confidence))
+    print("[DEBUG] Max max confidence:", np.max(max_confidence))
+
+    print("\n[DEBUG] First 10 prediction probabilities:")
+    for i in range(10):
+        print("Pred class:", y_pred[i], "confidence:", max_confidence[i])
+        print(y_pred_prob[i])
+
+    print("\n[DEBUG] Checking prediction distribution...")
+    y_pred_prob = model.predict(test_ds)
+    y_pred = np.argmax(y_pred_prob, axis=1)
+
+    y_true = []
+    for _, labels in test_ds:
+        y_true.extend(np.argmax(labels.numpy(), axis=1))
+
+    y_true = np.array(y_true)
+
+    print("\n[DEBUG] True label distribution:")
+    print(Counter(y_true))
+
+    print("\n[DEBUG] Predicted label distribution:")
+    print(Counter(y_pred))
+
+    print("\n[DEBUG] Class names:")
+    for i, name in enumerate(label_binarizer.classes_):
+        print(i, name)
+    
+    print("\n[DEBUG] Train label distribution:")
+    print(Counter(y_train_labels))
+
+    print("\n[DEBUG] Val label distribution:")
+    print(Counter(y_val_labels))
+
+    print("\n[DEBUG] Test label distribution:")
+    print(Counter(y_test_labels))
     print(f"Test Loss: {scores[0]}")
     print(f"Test Accuracy: {scores[1] * 100}%")
 
