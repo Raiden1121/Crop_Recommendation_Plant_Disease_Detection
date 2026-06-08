@@ -10,7 +10,8 @@ from sklearn.metrics import accuracy_score, classification_report
 from sklearn.ensemble import RandomForestClassifier
 
 
-DATA_PATH = "data/crop/Crop_recommendation.csv"
+DATA_PATH = r"D:\temppp\ML3\Crop_Recommendation_Plant_Disease_Detection-main\data\crop\Crop_recommendation.csv"
+
 MODEL_DIR = "models"
 DT_MODEL_PATH = f"{MODEL_DIR}/decision_tree.pkl"
 RF_MODEL_PATH = f"{MODEL_DIR}/random_forest.pkl"

@@ -54,6 +54,19 @@
                     <div class="result-crop">
                         <span data-i18n="crop.recommended">Recommended Crop</span>
                         <strong>{{ prediction }}</strong>
+                        {% if crop_probabilities %}
+                        <div class="result-probabilities">
+                            <span data-i18n="crop.topPredictions">Top Predictions</span>
+                            <ol>
+                                {% for item in crop_probabilities %}
+                                <li>
+                                    <span>{{ item.crop }}</span>
+                                    <b>{{ item.probability }}%</b>
+                                </li>
+                                {% endfor %}
+                            </ol>
+                        </div>
+                        {% endif %}
                     </div>
                     <p data-i18n="crop.resultDesc">The recommendation is generated from the submitted soil and climate values.</p>
                 </section>

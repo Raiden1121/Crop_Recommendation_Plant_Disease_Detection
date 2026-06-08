@@ -12,6 +12,7 @@
 #   5. 找出引入 Boosting 的理由
 
 import os
+import joblib
 import matplotlib
 matplotlib.use("Agg")
 import pandas as pd
@@ -89,4 +90,8 @@ plt.tight_layout()
 plt.savefig(f"{FIG_DIR}/n_estimators.png", dpi=120)
 plt.close()
 print(f"  [圖] 已儲存 {FIG_DIR}/n_estimators.png")
+
+# %% [儲存最佳 RF 模型]
+joblib.dump(rf, "models/rf_best.pkl")
+print(f"\nRF (n_estimators=100) 已儲存到：models/rf_best.pkl")
 
