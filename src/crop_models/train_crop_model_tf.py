@@ -13,7 +13,7 @@ from sklearn.metrics import accuracy_score, classification_report
 import tensorflow as tf
 from tensorflow.keras import layers, callbacks
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 DATA_PATH = str(BASE_DIR / "data" / "crop" / "Crop_recommendation.csv")
 MODEL_DIR = str(BASE_DIR / "models")
 TF_MODEL_PATH = str(BASE_DIR / "models" / "crop_tf_model.keras")
@@ -114,18 +114,23 @@ def plot_history(history):
     axes[1].legend()
 
     plt.tight_layout()
-    plt.savefig(f"{MODEL_DIR}/training_history.png", dpi=150)
+    import time
+    run_id = time.strftime("%H%M%S")
+    plt.savefig(f"{MODEL_DIR}/training_history_v1_{run_id}.png", dpi=150)
+    print(f"Saved: training_history_v1_{run_id}.png")
     plt.show()
 
 
-def evaluate_model(model, X_test, y_test, encoder):
-    loss, acc = model.evaluate(X_test, y_test, verbose=0)
-    print(f"\nTensorFlow MLP Test Accuracy: {acc:.4f}")
+def evaluate_model(model, X_test, y_test, X_val, y_val, encoder):
+    _, val_acc  = model.evaluate(X_val,  y_val,  verbose=0)
+    _, test_acc = model.evaluate(X_test, y_test, verbose=0)
+    print(f"\nVal  Accuracy: {val_acc:.4f}")
+    print(f"Test Accuracy: {test_acc:.4f}")
 
     y_pred = np.argmax(model.predict(X_test, verbose=0), axis=1)
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred, target_names=encoder.classes_))
-    return acc
+    return test_acc
 
 
 def save_artifacts(model, scaler, encoder, poly):
@@ -164,7 +169,7 @@ def main():
     history = train_model(model, X_train, y_train, X_val, y_val)
     plot_history(history)
 
-    acc = evaluate_model(model, X_test, y_test, encoder)
+    acc = evaluate_model(model, X_test, y_test, X_val, y_val, encoder)
 
     save_artifacts(model, scaler, encoder, poly)
 

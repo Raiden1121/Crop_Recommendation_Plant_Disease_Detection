@@ -12,7 +12,7 @@ from sklearn.metrics import accuracy_score, classification_report
 import tensorflow as tf
 from tensorflow.keras import layers, callbacks
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 DATA_PATH = str(BASE_DIR / "data" / "crop" / "Crop_recommendation.csv")
 MODEL_DIR = str(BASE_DIR / "models")
 
@@ -85,7 +85,7 @@ def train_single(model, X_train, y_train, X_val, y_val):
             verbose=0,
         ),
     ]
-    model.fit(
+    history = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
         epochs=300,
@@ -93,22 +93,47 @@ def train_single(model, X_train, y_train, X_val, y_val):
         callbacks=cb_list,
         verbose=0,
     )
-    return model
+    return model, history
 
 
 def train_ensemble(X_train, y_train, X_val, y_val, num_features, num_classes):
     models = []
+    histories = []
     seeds = [42, 7, 123, 256, 999]
 
     for i, seed in enumerate(seeds):
         print(f"  Training model {i+1}/{N_MODELS} (seed={seed})...")
         model = build_model(num_features, num_classes, seed=seed)
-        model = train_single(model, X_train, y_train, X_val, y_val)
+        model, history = train_single(model, X_train, y_train, X_val, y_val)
         val_loss, val_acc = model.evaluate(X_val, y_val, verbose=0)
         print(f"    Val Accuracy: {val_acc:.4f}")
         models.append(model)
+        histories.append(history)
 
-    return models
+    return models, histories
+
+
+def plot_ensemble_history(histories):
+    import matplotlib.pyplot as plt
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    seeds = [42, 7, 123, 256, 999]
+
+    for i, history in enumerate(histories):
+        axes[0].plot(history.history["val_accuracy"], label=f"seed={seeds[i]}", alpha=0.8)
+        axes[1].plot(history.history["val_loss"],     label=f"seed={seeds[i]}", alpha=0.8)
+
+    axes[0].set_title("Val Accuracy (5 models)")
+    axes[0].set_xlabel("Epoch")
+    axes[0].legend(fontsize=8)
+    axes[1].set_title("Val Loss (5 models)")
+    axes[1].set_xlabel("Epoch")
+    axes[1].legend(fontsize=8)
+
+    plt.suptitle("TF MLP v2 Ensemble Training History", fontsize=14)
+    plt.tight_layout()
+    plt.savefig(f"{MODEL_DIR}/training_history_v2.png", dpi=150)
+    plt.show()
+    print(f"Saved: {MODEL_DIR}/training_history_v2.png")
 
 
 def ensemble_predict(models, X):
@@ -154,9 +179,10 @@ def main():
     print(f"Train: {len(X_train)}  Val: {len(X_val)}  Test: {len(X_test)}\n")
 
     print(f"Training {N_MODELS} models for ensemble...\n")
-    models = train_ensemble(X_train, y_train, X_val, y_val,
-                            num_features=X.shape[1], num_classes=num_classes)
+    models, histories = train_ensemble(X_train, y_train, X_val, y_val,
+                                       num_features=X.shape[1], num_classes=num_classes)
 
+    plot_ensemble_history(histories)
     acc = evaluate_ensemble(models, X_test, y_test, encoder)
 
     save_artifacts(models, scaler, encoder, poly)
