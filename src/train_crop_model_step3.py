@@ -10,6 +10,7 @@
 #   3. 理解 LR 的限制在哪 → 為什麼後面的模型需要非線性能力
 
 import os
+import joblib
 import matplotlib
 matplotlib.use("Agg")
 import pandas as pd
@@ -92,3 +93,13 @@ plt.tight_layout()
 plt.savefig(f"{FIG_DIR}/lr_C_curve.png", dpi=120)
 plt.close()
 print(f"  [圖] 已儲存 {FIG_DIR}/lr_C_curve.png")
+
+# %% [儲存最佳 LR 模型]
+best_c = max(c_rows, key=lambda r: r["Test Acc"])["C"]
+best_lr = Pipeline([
+    ("scaler", StandardScaler()),
+    ("lr", LogisticRegression(C=best_c, max_iter=2000, random_state=42)),
+])
+best_lr.fit(X_train, y_train)
+joblib.dump(best_lr, "models/lr_best.pkl")
+print(f"\n最佳 LR (C={best_c}) 已儲存到：models/lr_best.pkl")

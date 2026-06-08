@@ -10,6 +10,7 @@
 #   4. 找出引入 RF 的具體理由
 
 import os
+import joblib
 import matplotlib
 matplotlib.use("Agg")
 import pandas as pd
@@ -93,3 +94,12 @@ for d, label in [(3, "depth=3  (欠擬合)"),
     scores = cross_val_score(dt, X_train, y_train, cv=cv, scoring="accuracy")
     print(f"  {label:<30} CV={scores.mean():.4f} ± {scores.std():.4f}  "
           f"(min={scores.min():.4f} max={scores.max():.4f})")
+
+# %% [儲存最佳 DT 模型]
+os.makedirs("models", exist_ok=True)
+best_idx = max(range(len(rows)), key=lambda i: rows[i]["Test Acc"])
+best_depth = depths[best_idx]
+best_dt = DecisionTreeClassifier(max_depth=best_depth, random_state=42)
+best_dt.fit(X_train, y_train)
+joblib.dump(best_dt, "models/dt_best.pkl")
+print(f"\n最佳 DT (max_depth={best_depth}) 已儲存到：models/dt_best.pkl")

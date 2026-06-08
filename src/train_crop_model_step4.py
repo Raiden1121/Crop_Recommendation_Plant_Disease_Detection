@@ -19,6 +19,7 @@
 #   4. rice-jute 問題：NB 有沒有解決 LR 的痛點？
 
 import os
+import joblib
 import matplotlib
 matplotlib.use("Agg")
 import pandas as pd
@@ -34,6 +35,7 @@ from sklearn.inspection import permutation_importance
 DATA_PATH = r"D:\temppp\ML3\Crop_Recommendation_Plant_Disease_Detection-main\data\crop\Crop_recommendation.csv"
 
 FIG_DIR = "models/step4_figs"
+MODEL_PATH = "models/nb_model.pkl"
 os.makedirs(FIG_DIR, exist_ok=True)
 
 df = pd.read_csv(DATA_PATH)
@@ -204,4 +206,62 @@ for _, row in pi_df.iterrows():
     bar = "█" * max(0, int(row["importance"] * 200))
     tag = " ← 拖累（加進去反而更差）" if row["importance"] < 0 else ""
     print(f"    {row['feature']:<15} {row['importance']:+.4f} ± {row['std']:.4f}  {bar}{tag}")
+
+# %% [儲存最終模型]
+joblib.dump(nb, MODEL_PATH)
+print(f"\n最終模型（GaussianNB，原始 7 特徵）已儲存到：{MODEL_PATH}")
+
+# %% [視覺化：Confusion Matrix Heatmap]
+classes = sorted(y.unique())
+cm = confusion_matrix(y_test, y_pred, labels=classes)
+plt.figure(figsize=(14, 11))
+sns.heatmap(
+    cm, annot=True, fmt="d", cmap="Blues",
+    xticklabels=classes, yticklabels=classes,
+    linewidths=0.5
+)
+plt.title("Confusion Matrix")
+plt.xlabel("預測")
+plt.ylabel("真實")
+plt.xticks(rotation=45, ha="right")
+plt.yticks(rotation=0)
+plt.tight_layout()
+plt.savefig(f"{FIG_DIR}/confusion_matrix.png", dpi=120)
+plt.close()
+print(f"  [圖] 已儲存 {FIG_DIR}/confusion_matrix.png")
+
+# %% [視覺化：Per-class Accuracy]
+per_class_acc = cm.diagonal() / cm.sum(axis=1)
+colors = ["tomato" if a < 1.0 else "steelblue" for a in per_class_acc]
+plt.figure(figsize=(14, 5))
+plt.bar(classes, per_class_acc, color=colors)
+plt.axhline(y=per_class_acc.mean(), color="gray", linestyle="--", alpha=0.7,
+            label=f"平均 {per_class_acc.mean():.4f}")
+plt.xticks(rotation=45, ha="right")
+plt.ylim(0, 1.05)
+plt.ylabel("Accuracy")
+plt.title("Per-class Accuracy（紅色 = 未達 100%）")
+plt.legend()
+plt.tight_layout()
+plt.savefig(f"{FIG_DIR}/per_class_accuracy.png", dpi=120)
+plt.close()
+print(f"  [圖] 已儲存 {FIG_DIR}/per_class_accuracy.png")
+
+# %% [視覺化：預測信心分布]
+proba = nb.predict_proba(X_test)
+max_confidence = proba.max(axis=1)
+is_correct = (y_pred == y_test.values)
+plt.figure(figsize=(10, 5))
+plt.hist(max_confidence[is_correct], bins=30, alpha=0.7,
+         color="steelblue", label=f"預測正確 (n={is_correct.sum()})")
+plt.hist(max_confidence[~is_correct], bins=30, alpha=0.7,
+         color="tomato", label=f"預測錯誤 (n={(~is_correct).sum()})")
+plt.xlabel("最高類別機率（模型信心）")
+plt.ylabel("Count")
+plt.title("預測信心分布（正確 vs 錯誤）")
+plt.legend()
+plt.tight_layout()
+plt.savefig(f"{FIG_DIR}/confidence_distribution.png", dpi=120)
+plt.close()
+print(f"  [圖] 已儲存 {FIG_DIR}/confidence_distribution.png")
 
